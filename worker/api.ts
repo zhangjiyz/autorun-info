@@ -80,15 +80,23 @@ async function rateLimit(
   }
 }
 
+function shareRateLimitBypassUntil(env: Env, now = Date.now()): string | null {
+  const deadline = Date.parse(env.SHARE_RATE_LIMIT_BYPASS_UNTIL ?? '');
+  return Number.isFinite(deadline) && now < deadline ? new Date(deadline).toISOString() : null;
+}
+
 async function protectMutation(request: Request, env: Env, action: 'share' | 'report') {
   const url = new URL(request.url);
   if (!submissionEnabled(url, env)) throw new ApiError(503, '社区投稿尚未开放，请稍后再试。');
   const ip = isLocal(url, env) ? '127.0.0.1' : request.headers.get('CF-Connecting-IP');
   if (!ip || ip.length > 64) throw new ApiError(503, '暂时无法提交，请稍后再试。');
   const db = database(env);
-  const now = Math.floor(Date.now() / 1000);
-  const digest = await hmac(`rate:${Math.floor(now / 86400)}:${ip}`, env.RATE_LIMIT_SALT!);
-  await rateLimit(db, digest, action, now);
+  const nowMs = Date.now();
+  const now = Math.floor(nowMs / 1000);
+  if (action !== 'share' || !shareRateLimitBypassUntil(env, nowMs)) {
+    const digest = await hmac(`rate:${Math.floor(now / 86400)}:${ip}`, env.RATE_LIMIT_SALT!);
+    await rateLimit(db, digest, action, now);
+  }
   return { db, now, ip };
 }
 
@@ -198,6 +206,7 @@ export async function handleRequest(
       const enabled = submissionEnabled(url, env);
       return json({
         submissionEnabled: enabled,
+        shareRateLimitBypassUntil: shareRateLimitBypassUntil(env),
         providers: PROVIDERS,
       });
     }

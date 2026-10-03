@@ -253,6 +253,7 @@ test('routes reject unknown games and unsupported methods before touching storag
   const config = await handleRequest(new Request(`${localOrigin}/api/config`), {}, games);
   assert.deepEqual(await config.json(), {
     submissionEnabled: false,
+    shareRateLimitBypassUntil: null,
     providers: [
       { id: 'baidu', label: '百度网盘' },
       { id: 'quark', label: '夸克网盘' },
@@ -357,6 +358,158 @@ test('missing configuration and exhausted rate limits cannot write a share', asy
   assert.equal(db.sqlite.prepare('SELECT count(*) AS total FROM shares').get()?.total, 6);
 });
 
+test('temporary share bypass preserves existing counters and ends exactly at its deadline', async (t) => {
+  let now = Date.parse('2026-10-03T05:10:00.000Z');
+  t.mock.method(Date, 'now', () => now);
+  const db = createDatabase();
+  t.after(() => db.sqlite.close());
+  const env = localEnv(db);
+  for (let index = 0; index < 6; index++) {
+    assert.equal(
+      (
+        await handleRequest(
+          post(sharePath, shareBody(`https://pan.baidu.com/s/BeforeBypass${index}`)),
+          env,
+          games,
+        )
+      ).status,
+      201,
+    );
+  }
+  const counters = db.sqlite.prepare('SELECT * FROM rate_limits ORDER BY key').all();
+  assert.equal(counters.length, 2);
+  const deadline = '2026-10-03T05:20:00.123Z';
+  const bypass = { ...env, SHARE_RATE_LIMIT_BYPASS_UNTIL: deadline };
+  const config = (await (
+    await handleRequest(new Request(`${localOrigin}/api/config`), bypass, games)
+  ).json()) as { shareRateLimitBypassUntil: string | null };
+  assert.equal(config.shareRateLimitBypassUntil, deadline);
+  for (let index = 0; index < 8; index++) {
+    assert.equal(
+      (
+        await handleRequest(
+          post(sharePath, shareBody(`https://pan.baidu.com/s/DuringBypass${index}`)),
+          bypass,
+          games,
+        )
+      ).status,
+      201,
+    );
+  }
+  assert.equal(
+    (
+      await handleRequest(
+        post(sharePath, shareBody('https://pan.baidu.com/s/DuringBypass0?pwd=other')),
+        bypass,
+        games,
+      )
+    ).status,
+    409,
+  );
+  assert.deepEqual(db.sqlite.prepare('SELECT * FROM rate_limits ORDER BY key').all(), counters);
+
+  now = Date.parse(deadline) - 1;
+  assert.equal(
+    (
+      await handleRequest(
+        post(sharePath, shareBody('https://pan.baidu.com/s/LastMillisecond')),
+        bypass,
+        games,
+      )
+    ).status,
+    201,
+  );
+  now += 1;
+  assert.equal(
+    (
+      await handleRequest(
+        post(sharePath, shareBody('https://pan.baidu.com/s/AtDeadline')),
+        bypass,
+        games,
+      )
+    ).status,
+    429,
+  );
+  const expiredConfig = (await (
+    await handleRequest(new Request(`${localOrigin}/api/config`), bypass, games)
+  ).json()) as { shareRateLimitBypassUntil: string | null };
+  assert.equal(expiredConfig.shareRateLimitBypassUntil, null);
+  assert.deepEqual(db.sqlite.prepare('SELECT * FROM rate_limits ORDER BY key').all(), counters);
+  assert.equal(db.sqlite.prepare('SELECT count(*) AS total FROM shares').get()?.total, 15);
+});
+
+test('absent, invalid, and expired bypass values keep the normal share limits', async (t) => {
+  const now = Date.parse('2026-10-03T05:10:00.000Z');
+  t.mock.method(Date, 'now', () => now);
+  for (const deadline of [undefined, '', 'not-a-date', '2026-10-03T05:09:59.999Z']) {
+    const db = createDatabase();
+    t.after(() => db.sqlite.close());
+    const env = { ...localEnv(db), SHARE_RATE_LIMIT_BYPASS_UNTIL: deadline };
+    const config = (await (
+      await handleRequest(new Request(`${localOrigin}/api/config`), env, games)
+    ).json()) as { shareRateLimitBypassUntil: string | null };
+    assert.equal(config.shareRateLimitBypassUntil, null);
+    for (let index = 0; index < 7; index++) {
+      assert.equal(
+        (
+          await handleRequest(
+            post(sharePath, shareBody(`https://pan.baidu.com/s/Fallback${index}`)),
+            env,
+            games,
+          )
+        ).status,
+        index < 6 ? 201 : 429,
+        `deadline=${String(deadline)}, attempt=${index + 1}`,
+      );
+    }
+    assert.equal(db.sqlite.prepare('SELECT count(*) AS total FROM shares').get()?.total, 6);
+  }
+});
+
+test('an active share bypass still requires configuration, secure identity, and valid submissions', async (t) => {
+  t.mock.method(Date, 'now', () => Date.parse('2026-10-03T05:10:00.000Z'));
+  const db = createDatabase();
+  t.after(() => db.sqlite.close());
+  const env = {
+    ...localEnv(db),
+    SHARE_RATE_LIMIT_BYPASS_UNTIL: '2026-10-03T06:10:00.000Z',
+  };
+  for (const broken of [
+    { ...env, DB: undefined },
+    { ...env, RATE_LIMIT_SALT: undefined },
+    { ...env, RATE_LIMIT_SALT: 'short' },
+  ]) {
+    assert.equal((await handleRequest(post(sharePath, shareBody()), broken, games)).status, 503);
+  }
+  const production = { ...env, ENVIRONMENT: 'production' };
+  for (const [origin, ip] of [
+    ['http://example.com', '203.0.113.1'],
+    ['https://example.com', ''],
+    ['https://example.com', 'a'.repeat(65)],
+  ]) {
+    const request = new Request(`${origin}${sharePath}`, {
+      method: 'POST',
+      body: JSON.stringify(shareBody()),
+      headers: {
+        Origin: origin,
+        'Content-Type': 'application/json',
+        ...(ip ? { 'CF-Connecting-IP': ip } : {}),
+      },
+    });
+    assert.equal((await handleRequest(request, production, games)).status, 503);
+  }
+  for (const [request, status] of [
+    [post(sharePath, shareBody(), { headers: { 'Content-Type': 'application/json' } }), 403],
+    [post(sharePath, shareBody(), { body: '{invalid' }), 400],
+    [post(sharePath, { ...shareBody(), note: 'a'.repeat(9000) }), 413],
+    [post(sharePath, shareBody('https://example.com/not-a-share')), 400],
+  ] as const) {
+    assert.equal((await handleRequest(request, env, games)).status, status);
+  }
+  assert.equal(db.sqlite.prepare('SELECT count(*) AS total FROM shares').get()?.total, 0);
+  assert.equal(db.sqlite.prepare('SELECT count(*) AS total FROM rate_limits').get()?.total, 0);
+});
+
 test('public or production mutations require Cloudflare client identity and HTTPS', async (t) => {
   const db = createDatabase();
   t.after(() => db.sqlite.close());
@@ -421,10 +574,14 @@ test('phone LAN previews can post and report without cloud identity or external 
   );
 });
 
-test('feedback limits still apply and the same IP cannot inflate a feedback count', async (t) => {
+test('feedback limits still apply during an active share bypass and the same IP cannot inflate a feedback count', async (t) => {
+  t.mock.method(Date, 'now', () => Date.parse('2026-10-03T05:10:00.000Z'));
   const db = createDatabase();
   t.after(() => db.sqlite.close());
-  const env = localEnv(db);
+  const env = {
+    ...localEnv(db),
+    SHARE_RATE_LIMIT_BYPASS_UNTIL: '2026-10-03T06:10:00.000Z',
+  };
   const created = await handleRequest(post(sharePath, shareBody()), env, games);
   const { share } = (await created.json()) as { share: { id: string } };
   const path = `/api/shares/${share.id}/reports`;

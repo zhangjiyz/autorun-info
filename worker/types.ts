@@ -14,6 +14,7 @@ export interface D1Binding {
 export interface Env {
   DB?: D1Binding;
   RATE_LIMIT_SALT?: string;
+  SHARE_RATE_LIMIT_BYPASS_UNTIL?: string;
   ENVIRONMENT?: string;
 }
 

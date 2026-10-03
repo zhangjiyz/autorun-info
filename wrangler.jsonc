@@ -17,6 +17,9 @@
       "migrations_dir": "migrations",
     },
   ],
-  "vars": { "ENVIRONMENT": "production" },
+  "vars": {
+    "ENVIRONMENT": "production",
+    "SHARE_RATE_LIMIT_BYPASS_UNTIL": "2026-10-03T16:45:00Z",
+  },
   "observability": { "enabled": false },
 }
