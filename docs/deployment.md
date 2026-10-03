@@ -52,7 +52,9 @@ npx wrangler secret put RATE_LIMIT_SALT
 
 本地启动脚本会生成独立的随机盐，只用于本地开发。
 
-临时批量发布时，可配置运行时文本变量 `SHARE_RATE_LIMIT_BYPASS_UNTIL`，填入带时区的 ISO 截止时间。截止前全站分享提交暂不限制次数，也不消耗原额度；每次请求都会检查时间，到期自动恢复原限制。未配置、时间无效或已过期时均按原限制执行。已有计数保留，重复链接检查与失效反馈限流继续生效。当前临时窗口写在 `wrangler.jsonc` 中，后续也可在 Worker 的 **Settings → Variables and Secrets** 修改该值并部署；再次从 Git 部署时以仓库配置为准。
+临时批量发布时，在 Worker 的 **Settings → Variables and Secrets → Add** 添加文本变量 `SHARE_RATE_LIMIT_BYPASS_UNTIL`，填入带时区的 ISO 截止时间，再点 **Deploy**。例如 `2026-10-04T00:45:00+08:00` 表示北京时间 2026 年 10 月 4 日 00:45；实际使用时填写需要的未来时间。该变量是运行时设置，不填在 Build variables and secrets 中。
+
+截止前全站分享提交暂不限制次数，也不消耗原额度；每次请求都会检查时间，到期自动恢复原限制。未配置、时间无效或已过期时均按原限制执行。提前恢复可删除变量并部署。已有计数保留，重复链接检查与失效反馈限流继续生效。仓库不设固定截止时间，`keep_vars: true` 会保留后台设置的变量，后续 Git 部署不会将其清除。[Wrangler 变量保留说明](https://developers.cloudflare.com/workers/wrangler/configuration/#source-of-truth)
 
 ## 3. 首次部署
 
