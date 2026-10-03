@@ -1,0 +1,16 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Icon from '../../components/Icon.astro';
+import Community from '../../components/Community.astro';
+import { games } from '../../lib/catalog';
+export function getStaticPaths() { return games.map(game => ({ params: { id: game.id }, props: { game } })); }
+const { game } = Astro.props;
+---
+<Layout title={game.name} description={`${game.name}的适配信息、适用版本与玩家网盘分享。`}>
+  <nav class="breadcrumb" aria-label="当前位置"><a href="/">游戏库</a><Icon name="chevron" size={14}/><span aria-current="page">{game.name}</span></nav>
+  <section class="detail-hero" aria-labelledby="game-title">
+    <div class="detail-cover cover-frame">{game.cover ? <img src={game.cover} alt={`${game.name}封面`} width="600" height="900"/> : <div class="cover-placeholder"><Icon name="game" size={40}/><span>ZERO ESCAPE</span><strong>{game.name}</strong></div>}</div>
+    <div class="detail-copy"><p class="detail-category">{game.category}</p><h1 id="game-title">{game.name}</h1><div class="detail-tags"><span class="tag">Nintendo Switch</span><span class="tag">适配资料 v{game.version}</span></div><p class="detail-description">{game.description}</p><p class="target-version"><span>适用版本</span>{game.targetVersion}</p><div class="detail-actions"><a href="#community" class="button secondary"><Icon name="link" size={17}/>浏览网盘分享</a><button type="button" class="button primary" data-open-share><Icon name="plus" size={17}/>分享网盘链接</button></div></div>
+  </section>
+  <Community gameId={game.id} gameName={game.name}/>
+</Layout>

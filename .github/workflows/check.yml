@@ -1,0 +1,41 @@
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+      ASTRO_TELEMETRY_DISABLED: '1'
+      CI: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Check Astro and Worker types
+        run: npm run check
+      - name: Run tests
+        run: npm test
+      - name: Build static pages
+        run: npm run build
+      - name: Verify Worker bundle without deploying
+        run: npx wrangler deploy --dry-run

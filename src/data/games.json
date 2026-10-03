@@ -1,0 +1,240 @@
+{
+  "source": {
+    "repository": "https://cnb.cool/PalmMuse/autorun-cn",
+    "commit": "36f673626f3b8b2be9e3cae8a4912e6175ae1053",
+    "workingTreeDirty": false,
+    "importedAt": "2026-10-03T12:46:42.134Z",
+    "kind": "local"
+  },
+  "games": [
+    {
+      "id": "newpal-steam",
+      "name": "新仙剑奇侠传（Steam版）",
+      "version": 1,
+      "minApi": 5,
+      "keywords": "新仙剑 新仙劍 NewPAL PAL xinxianjian",
+      "description": "适用于《新仙剑奇侠传》Steam 版，游戏版本 2.17.102.0。",
+      "cover": "/covers/newpal-steam.png",
+      "readme": "# 新仙剑奇侠传 NewPAL：实机验证用配置\n\n适用于 `NewPAL_Release.exe` 2.17.102.0，SHA-256：\n`1301e72bf46008eb74a0f49ab81d9894ab92d037d63c63d86c906aa067c961dc`。\n\n将本目录的两个 `.txt` 文件放在游戏 EXE 旁边；先备份已有配置。\n设置文件保留此次实机原有的 `d3d=dxvk`，并启用独立按键。\n需要运行时 `nx-amd64-box64-18` 或更新版本：`controller=keyboard`\n隐藏 XInput 手柄并强制保留键盘/鼠标映射，避免 SDL 的手柄探测抢走输入。\n其他游戏不设置此选项时沿用原生手柄自动接管行为。\n\n| Switch 控件 | 发送给游戏的输入 |\n|---|---|\n| 左摇杆、十字键 | 方向键 |\n| A / B | Enter / Esc |\n| X / Y | 空格 / Ctrl |\n| L / R | Page Up / Page Down |\n| + / − | Enter / Esc |\n| 右摇杆 | 鼠标移动 |\n| ZR、右摇杆按下 / ZL | 鼠标左键 / 右键 |\n| 左摇杆按下 | Shift |\n| 触屏 | 鼠标定位及左键 |\n\n## 2026-09-20 诊断依据与验证边界\n\n实机为 `nx-amd64-box64-16`、32 位地址空间。原配置只有 `d3d=dxvk`，\n没有游戏专用按键。日志记录 SDL 窗口 `rect=0,0-902,697`，右摇杆可移动鼠标，\n加载 D3D9/OpenGL 并将屏幕交给 OpenGL surface；后续按不区分大小写检索发现 XINPUT9_1_0 加载记录；仅凭加载不能认定为 XInput 接管。\n\n曾尝试 `aspect-fit=896x672` 和 `touch-coordinates=game`，用户报告画面\n出现重叠，当前配置已撤销这两个选项。现有居中代码假定 WineD3D 已在\n左侧生成完整的 960×720 画面，该假设未在 NewPAL 上得到验证，不应继续套用。\n画面可能恢复左偏，正确居中仍待适配。\n\n这是一份待实机验收的配置，不代表已解决画面或输入问题。启动后检查：\n左右黑边、菜单鼠标点击、进入游戏后的方向移动、Enter/Esc，以及触屏落点。\n用户已确认其他平台的同版游戏主菜单支持方向键，主菜单键盘操作也属于验收范围。\n首次排查曾开启 `verbose=1`。用户随后报告声音卡顿、菜单迟迟不出现，\n因此本地配置已恢复 `verbose=0`，先排除详细日志的额外开销；关闭日志\n并不等于媒体问题已解决。关闭详细日志的更新已通过 MTP 部署并读回校验一致。\n若调整了游戏分辨率，应重新检查 `aspect-fit` 和鼠标映射。\n\n两份配置已通过 MTP 部署到 `sdmc:/switch/wine/drive_c/NewPAL/`，\n并从设备重新下载，与本目录文件逐字节比较一致。部署前配置和日志备份在\n工作区外层 `diagnostics/newpal-20260920-225734/`。游戏重启后的显示、输入\n验证尚未完成。\n\n## 音频与菜单等待：第二次日志\n\n`diagnostics/newpal-verbose-audio-20260920-230920/` 保存开启跟踪后的日志。\n游戏日志约 34 MiB、612398 行，其中 604819 行为 `[SYSCALL]`，\n因此全量跟踪是必须先排除的额外开销。\nVLC 报告 `ES_OUT_SET_(GROUP_)PCR is called too late`，\n延迟依次升到 300、462、669、1441、2200 ms，并重复重置 PCR。\n同时出现 libmad 的 `bad main_data_begin pointer` 和 `Huffman data overrun`。\n这些证明媒体播放异常，但尚不能确定是解码、调度、数据读取还是其他原因。\n本次只有 67 次插件加载记录，不能继续把全部启动等待归因于首轮 316 个插件扫描。\n\n这轮只把 `verbose=1` 改回 `verbose=0`，保留显示、按键和媒体组件。\n下一次应在关闭跟踪的条件下对比菜单等待及听感，再决定音频改动。\n\n## v17 强制键盘与显示回退\n\n用户报告画面重叠，并确认此游戏主菜单在其他平台可用方向键。\n最新低日志开销记录仍显示 24 项按键映射已经读取；重复写相同按键文件\n无法排除原生手柄检测对映射的抑制。因此新增 `controller=keyboard`：\nXInput 状态、震动和由状态派生的能力查询均表现为未连接；运行时也不因\n最近一次 XInput 轮询而清空映射按键。默认模式及其他游戏保持原行为。\n该选项是输入路径修正，尚不能单凭静态测试断定实机按键问题已解决。\n\nv17 NRO 与当前四行配置均已 MTP 部署、读回 SHA-256 校验一致。\nNRO SHA-256：`4cd0e6bfbc904e3027a2abed3b12a83da08cd2807ab614a6cf2f256429cd6a88`。\n旧 v16 NRO、构建产物及部署前静默日志保存在工作区外层\n`diagnostics/newpal-keyboard-v17/`。\nXInput 原生/WoW64 查询、强制键盘下禁用轮询、恢复默认模式，以及摇杆\n回归测试均通过 UBSan；Switch 增量构建和 `git diff --check` 通过。\n实机需重新启动后验证主菜单方向键、A 确认、B 返回和画面重叠。\n\n## v18：窗口呈现、SDL 音频与有限按键诊断\n\nv17 实机日志确认新运行时和强制键盘模式已经生效，但用户仍报告画面在\n左下角、按键无效；背景音乐正常，只有游戏音效没有声音。\n\n- `window-fit=1`：让 win32u 为游戏建立真实客户端尺寸的离屏帧缓冲，\n  从该帧缓冲等比缩放到 1280×720 正中，并清除黑边。跳过旧的\n  `aspect-fit` 屏幕搬移；触屏使用同一矩形逆映射，再加客户端桌面原点。\n  `[NXWINDOW]` 只在尺寸或原点变化时记录实际源尺寸和目标区域。\n- `sdl-audio=directsound`：在此游戏的 Windows 进程环境中加入\n  `SDL_AUDIODRIVER=directsound`。当前原生音频后端只允许一个播放客户端，\n  SDL 与 VLC 分别打开客户端可能冲突；DirectSound 可在进程内共享混音设备。\n  这是待实机验证的音频调整，尚未证实 VLC 的实际输出模块或冲突返回值。\n- 输入保持 v17 键盘映射，新增 `[NXKEY]` 发送、服务端队列、取消息记录，\n  各限制前 48 条；`[NXAUDIO]` 最多记录 32 次播放客户端创建及返回值。\n  保持 `verbose=0`，不启用全量系统调用跟踪。\n\n音频后端 UBSan 回归覆盖播放、格式转换和第二个客户端被拒绝；Horizon\n键码/扫描码/修饰键/原始输入测试通过，Switch 增量构建通过。\n这些检查不代表实际显示、SDL 菜单输入或音效已验收。\nv18 NRO SHA-256：\n`b5e301a57ef4dddd128f5333026e6382e210c3fb4e8cffa3358727ee97b0f592`。\n备份与构建文件在工作区外层 `diagnostics/newpal-window-audio-v18/`。\n\n复测：重启 Autorun 并启动 NewPAL；主菜单按上、下、A、B 各一次；\n检查画面居中和鼠标落点；进入游戏触发一次明确的音效后退出并打开 MTP。\n日志能区分按键未生成、无焦点、未被取出及音频设备创建失败，不能直接\n证明 SDL 或游戏逻辑已消费事件。\n\nv18 运行时及六行游戏配置均已通过 MTP 部署，并重新下载逐字节校验一致。\n实机复测待用户完成。\n\n## v19：对照 RGWinRunner 后修复硬件消息的队列分类\n\n用户在 v18 报告方向键仍无效，按菜单键后长时间才显示菜单。\n对照实际 RGWinRunner 工程：`keymaps/newpal.gptk` 的方向/Enter/Esc 映射\n与此配置一致；`lib/common.sh` 启动 gptokeyb2，通过 `/dev/uinput` 发送\n`EV_KEY` 和 `SYN_REPORT`，进入 Linux 输入系统与完整 Wine。该工程还使用\nNewPAL 原生媒体桥和 wineserver64；不能直接将 Linux 配置搬到 Switch。\n\n在 Switch 的 `horizon_server_refresh_queue_locked()` 中确认独立缺陷：\n所有非 WM_MOUSEMOVE 的硬件消息都被统计为 QS_MOUSEBUTTON，包括键盘和\nWM_INPUT。键盘入队时设置的 QS_KEY 会被随后的 `horizon_msgq_update()` 清除，\n导致 GetQueueStatus / 只等待键盘的消息循环看不到正确类型的待处理输入。\n现在按 `server/queue.c` 的分类方式区分键盘、原始输入、鼠标移动和鼠标按钮。\n\n`tests/horizon_msg_queue.c` 新增组合回归：入队、刷新、等待、保留消息、移除消息，\n以及键盘/原始输入/鼠标混合队列。保留旧分类实现时断言失败，修复后通过 UBSan；\n原有键码、修饰键、原始输入测试也通过。保留 v18 的有限事件日志以便实机验证。\n这是已证实的兼容层缺陷，但尚未凭 v18 实机日志证明它是 NewPAL 所有输入\n问题及菜单卡顿的唯一原因。MTP 未连接时不替换当前配置，先取回本轮日志。\n\nv19 Switch 构建通过，NRO SHA-256：`05c92b8ba66eb6503d66984671c065b865557f3b6c68493ee0746045c1438e2e`。\n构建文件保存在 `diagnostics/newpal-keyboard-queue-v19/`，尚未部署。\n\n## v20：v18 实机日志确认扫描码缺失与文件信息查询停顿\n\n日志取回于 2026-09-20 23:56，运行标记是 v18；v19 当时尚未部署。\n日志保存在 `diagnostics/newpal-log-check-20260920-235608/`，另有 v20 目录中的备份。\n\n**输入证据：** 主窗口 00010036、线程 0004 实际取走了 WM_KEYDOWN/UP。\n例如 VK_DOWN 的 scan=50、flags=0、lParam=00500001，VK_UP 的 scan=48、\nflags=0、lParam=00480001。独立方向键必须带 E0 前缀与 lParam 的扩展位。\n`NtUserMapVirtualKeyEx()` 的 null-driver US 表先匹配到小键盘别名，返回\n裸扫描码；所以“输入完全未到达窗口”的推测不适用于这次日志。\nv20 对控制器映射中的方向、PageUp/Down、Home/End、Insert/Delete 指定独立\n导航区 E0 扫描码，Enter/Esc、普通键和真正的小键盘键保持原映射。\n保留 v19 的队列分类修正，但该修正本身不足以解决此次缺少扩展标志的问题。\n\n**停顿证据：** 126、136、146、156 秒的 frames 都是 3794，gl_frames 都是3783；\n期间 cache_hits 从69694升到103930。根据运行时模块基址20c8a000，重建出与\n设备 NRO SHA-256 完全一致的 v18，并保存对应 ELF，解析主线程 4w：\n`NtQueryInformationFile -> fd_get_file_info -> fsdev_fstat -> fsdev_converttimetoutc -> svcSendSyncRequest`。\n启动时的长停顿也采样到相同调用链。不能据此认定菜单停顿的全部时间都花在\n这条链上，但它是连续多次采样命中的实际阻塞点。\n\n新增仅此游戏启用的 `sd-stat-cache=1`，复用 SD 字节缓存的只读文件生命周期：\n成功的 fstat 结果按打开句柄缓存；写打开、重命名、删除、截断使同路径缓存\n失效；失败查询不缓存，未知/可写句柄直接查底层。外部同时改写文件不在该\n模式的支持范围内，与现有只读数据缓存一致。默认关闭，其他游戏不启用。\n`[PROGRESS]` 的 stat_queries/stat_hits 用于下轮比较实际底层查询数和命中数。\n\nUBSan 回归通过：实际扫描码 helper 接 Horizon 事件生成，验证导航键按下/\n释放的 E0 和 lParam、普通 Enter/Esc 与真小键盘8；消息队列分类；文件信息\n一万次查询只读取一次、失败不缓存、写入失效、路径失效、句柄复用及未知句柄。\nSwitch 构建通过，NRO SHA-256：\n`52ae253a7c73fbc5f8a7e4aaf3c308fb85b74c859f785f1a0b8d5cbaa9dc1dd1`。\n构建和旧版备份：`diagnostics/newpal-scancode-stat-v20/`；包含 v20 ELF，便于精确解析后续栈。\n\nv20 NRO 及七行配置已通过 MTP 部署，设备读回与构建/配置逐字节一致。\n键盘响应与菜单等待时长仍待用户实机复测，未将构建/传输成功视为验收通过。\n",
+      "category": "仙剑系列",
+      "verification": "unverified",
+      "verificationNote": "显示、输入和音效调整尚待完整实机验收。",
+      "targetVersion": "Steam 版 2.17.102.0 · NewPAL_Release.exe",
+      "knownIssues": [
+        "方向键响应与菜单等待时长仍待复测。",
+        "画面居中、触屏和游戏音效尚未完成验收。"
+      ]
+    },
+    {
+      "id": "newpalxp",
+      "name": "新仙剑奇侠传（XP版）",
+      "version": 1,
+      "minApi": 12,
+      "keywords": "新仙剑 新仙劍 Palgame PAL 2001 xinxianjian",
+      "description": "适用于《新仙剑奇侠传》XP 版；校验后停用游戏目录自带的 DDrawCompat。",
+      "cover": "/covers/newpalxp.png",
+      "readme": "# 新仙剑奇侠传 2001 `Palgame.exe` 实机配置\n\n仅适用于以下主程序：\n\n- 文件名：`Palgame.exe`\n- PE 类型：32 位 i386 Windows GUI\n- 时间戳：2001-08-03 09:15:47\n- SHA-256：`6c78208f89dc83a13a49512d783e3b6c02ad6768cfa82f67d914c1b8afa7794c`\n\n这不是 `NewPAL_Release.exe` 2.17.102.0。该版本直接导入 DirectDraw、\nDirectInput、Miles Sound System 和 Bink，因此不继承旧适配中的 DXVK 和\nSDL DirectSound 设置。\n\n启动和视频结束后，程序会用读写权限反复打开 `gfight1.dat`、`ghero.dat`、\n`gmap.dat` 等十个全局数据文件并查询文件信息。此适配启用\n`sd-stat-cache=1`，避免相同句柄重复访问 SD 元数据。第一次打开游戏菜单时，\n程序还会对 `gitem.dat` 做上万次 1 至 4 字节随机读取，同时读取 `ghero.dat`\n和 `gmagic.dat`。运行时允许尚未实际写入的读写句柄使用 SD 字节缓存；第一次\n真实写入或截断前会使同路径的全部缓存失效，重命名和删除也会失效缓存，因而\n不改变存档写入语义。修复前菜单阶段约产生 3.5 万次真实 SD 请求，修复后实机\n确认首次菜单速度恢复正常。该行为由本配置的 `sd-clean-writer-cache=1` 单独启用，\n未启用的其他游戏继续使用原来的只读字节缓存规则。\n\n当前配置启用简体中文区域设置、4:3 窗口等比居中、强制键盘和独立按键。\n实机日志证明 Bink 视频结束后，游戏主线程、Miles 音频和输入仍在运行。正式\n游戏阶段用 `Blt` 把 640×480 离屏表面复制到 DirectDraw 主表面，但 OpenGL\n接管屏幕后，主表面的 HWND clipper 在 Wine-NX 上返回空可见区；Wine 因而返回\n`DD_OK`，却没有复制或提交任何画面。纯\n`wined3d-renderer=gdi` 实机 A/B 虽能显示游戏画面，却使开场视频无声且游戏\n帧率不可接受，已撤回。进一步的实机日志表明，视频阶段通过 Present 正常提交\nOpenGL 帧，视频后游戏却改为直接更新 DirectDraw 主表面；桌面 WGL 可直接显示\nGL_FRONT 更新，但 Wine-NX 的双缓冲 EGL 屏幕不会显示这条路径。当前配置仅在\n该游戏启用显式前缓冲提交：主表面 `Blt` 绕过无效的桌面可见区裁剪，把结果画到\nGL_BACK 并执行交换，继续保留 GPU 路径。实机已确认直接载入存档后的游戏画面、\n输入、背景音乐、按键音效和菜单均可用。\n\n游戏目录自带的 `DDraw.dll` 是 DDrawCompat；Windows 侧 `ddraw.log` 只能证明\n它曾在原环境成功加载，不能视为 Wine-NX 兼容性证据。Switch 实机上该 DLL\n虽能完成 hooks 安装，但随后使 `wined3d` 无法取得 GL context，并从\n`ddraw.dll` 的空函数指针崩溃。因此设备目录中必须停用这份本地 `DDraw.dll`，\n使用 Wine 内置 DirectDraw。适配包 API 12 起按 SHA-256 核对游戏目录中的\n`DDraw.dll`，只对已验证的 DDrawCompat 文件执行可恢复的停用；未知文件保持不变。\n\n目录里的 `Data/Palgame.exe` 是另一份 2004 年、SHA-256 为\n`1536f7f04045214c3cc42bf360e6abc80479eb3b3c36509da350cbbee7684141` 的程序，\n不属于本适配目标，不应从 `Data` 子目录启动。\n\n## 控件\n\n| Switch 控件 | 游戏输入 |\n|---|---|\n| 左摇杆、十字键 | 方向键 |\n| A / B | Enter / Esc |\n| X / Y | 空格 / Ctrl |\n| L / R | Page Up / Page Down |\n| + / - | Enter / Esc |\n| 右摇杆、触屏 | 鼠标 |\n| ZR / ZL | 鼠标左键 / 右键 |\n| 左摇杆按下 | Shift |\n\n## 实机验收\n\n1. 从根目录启动 `Palgame.exe`，不要启动 `Data/Palgame.exe`。\n2. 确认启动弹窗的五个中文按钮不再显示问号。\n3. 记录是否出现开场视频、主菜单以及 4:3 居中画面；先让开场视频自然播放\n   完毕，再单独测试 B / Esc 跳过路径。\n4. 在主菜单验证十字键、左摇杆、A、B 和触屏落点。\n5. 进入游戏验证背景音乐、音效和一段 Bink 视频。\n6. 新建存档，退出 Autorun 后重新进入并读档。\n7. 若失败，保留游戏日志，并记录是否生成或更新 `ddraw.log`。\n\n当前实机已验证直接载入存档后的显示、输入、背景音乐、按键音效和首次菜单\n速度。正式发布前仍应完整验证开场视频自然结束与跳过、游戏内视频、存档写入、\n退出重启和持续运行。\n",
+      "category": "仙剑系列",
+      "verification": "unverified",
+      "verificationNote": "已确认读档后的画面、输入、背景音乐、按键音效及首次菜单速度；完整流程仍待验证。",
+      "targetVersion": "2001 / XP 版 · 根目录 Palgame.exe",
+      "knownIssues": [
+        "开场视频自然结束与跳过、游戏内视频仍待完整验证。",
+        "存档写入、退出重启和持续运行尚未完成验收。"
+      ]
+    },
+    {
+      "id": "pal2",
+      "name": "仙剑奇侠传二",
+      "version": 2,
+      "minApi": 5,
+      "keywords": "仙剑奇侠传二 仙劍奇俠傳二 仙剑2 Pal2 Chinese Paladin 2",
+      "description": "适用于《仙剑奇侠传二》1.05 版。",
+      "cover": "/covers/pal2.png",
+      "readme": "# 仙剑奇侠传二 1.05 版配置\n\n适用于根目录中的 `Pal2.exe`：\n\n- PE 类型：32 位 i386 Windows GUI\n- 文件大小：1268736 字节\n- SHA-256：`f82059aee4870ec80c8664a12249e691540ca4861adfcc8d1c1f1ffd542846b1`\n- 游戏说明文件标注版本：1.05\n\n主程序使用 DirectDraw、DirectInput、DirectInput 8、Bink 和 Miles Sound System。\n配置使用 Wine DirectDraw、4:3 等比居中、简体中文区域设置和独立键盘映射，\n同时启用 SD 文件状态缓存及干净写句柄读取缓存。\n适配包 v2 新增 `wined3d-frontbuffer-swap=1`，用于修复进入战斗后画面停止更新的问题。\n\n2026-09-26 真机测试中，进入战斗时画面停止更新，操作和声音仍在。\n诊断日志确认计时继续前进，OpenGL 呈现帧数停止；展开代码和内存显示已进入战斗模块。\n仅增加 `wined3d-frontbuffer-swap=1` 后，用户确认战斗画面恢复正常，因此保留该设置。\n该开关对本游戏启用 DirectDraw 主表面显式呈现及 Flip 链 CPU 副本更新；\n目前尚未通过进一步单变量测试区分两项处理各自的必要性，也未完成长时间战斗、存读档等验收。\n\n游戏本体必须完整复制。`Pal2.exe` 同目录至少要保留 `BINKW32.DLL`、\n`MSS32.DLL`、`CHINA.DLL`、`Mp3dec.asi`、`Mss16.dll`、`keyboard.dat` 和\n`Joystick.ini`，并保留 `Data`、`Fight`、`Game_Data`、`Music`、`PicLib`、\n`Save`、`video` 等数据目录。2026-09-21 取得的旧真机日志缺少前三个必需 DLL，\n加载器因此以 `c0000135` 退出，尚未形成显示、输入或音频兼容性结论。\n\n## 控件\n\n| Switch 控件 | 游戏输入 |\n|---|---|\n| 左摇杆、十字键 | 方向键 |\n| A / B | Enter / Esc |\n| X / Y | 空格 / Ctrl |\n| L / R | Page Up / Page Down |\n| + / - | Enter / Esc |\n| 右摇杆、触屏 | 鼠标 |\n| ZR / ZL | 鼠标左键 / 右键 |\n| 左摇杆按下 | Shift |\n\n## 首轮实机验收\n\n1. 从根目录启动 `Pal2.exe`。\n2. 确认寰宇之星、大宇或狂徒标志及开场 Bink 视频能显示并有声音。\n3. 确认主菜单画面为 4:3 居中，十字键、左摇杆、A、B 和触屏可用。\n4. 进入游戏检查背景音乐、语音、音效、地图和战斗画面。\n5. 新建存档，完全退出后重新进入并读档。\n6. 如果视频后黑屏、只有声音或首次菜单长时间停顿，保留本轮 `game-Pal2.log`。\n",
+      "category": "仙剑系列",
+      "verification": "unverified",
+      "verificationNote": "战斗画面停止更新的问题已有实机恢复确认；完整流程仍待验证。",
+      "targetVersion": "1.05 版 · Pal2.exe",
+      "knownIssues": [
+        "长时间战斗和存读档尚未完成验收。"
+      ]
+    },
+    {
+      "id": "pal3",
+      "name": "仙剑奇侠传三",
+      "version": 2,
+      "minApi": 10,
+      "keywords": "仙剑奇侠传三 仙劍奇俠傳三 仙剑3 PAL3 Chinese Paladin 3",
+      "description": "适用于《仙剑奇侠传三》简体中文版，包含 PAL3patch 5.1 补丁文件。",
+      "cover": "/covers/pal3.png",
+      "readme": "# 仙剑奇侠传三配置\n\n目标是游戏根目录的 32 位 `PAL3.exe`。适配包包含启动器设置、控件，以及已核对的三份 PAL3patch 5.1 文件；不包含游戏本体。游戏使用 Direct3D 9、Bink 和 Miles Sound System；目前使用 WineD3D，32 位 DXVK 在该游戏初始化时失败。\n\n本地原游戏随附 PAL3patch 2.1（2020-06-01）；真机使用 PAL3patch 5.1（2025-06-01）。`PAL3patch.conf`、`PAL3patch.dll`、`PAL3.dll` 从本轮真机测试的文件逐字节核对后加入适配包。最初偶发的启动崩溃尚未定位到单独原因，不能把后续成功启动当作已修复。\n\n安装时直接覆盖同目录的三份补丁文件，并纳入配置包事务备份、失败回滚和“恢复配置”。这三份文件不参与设置合并；`PAL3.wine-nx.txt`、按键、作弊和封面仍按原流程处理。补丁文件要求运行时 API 7；模拟触摸时长的固定位置点击要求 API 10。游戏自己的 `config.ini` 不带入配置包：真机的 `motionblur` 改回 1 后，已与本机文件逐字节一致。`PAL3patch.conf` 中的 `nolockablebackbuffer=0` 是真机已验证的视频流畅设置。\n\n## 已保留的修复\n\n| 问题 | 当前处理 | 作用范围 |\n|---|---|---|\n| 睡觉场景被黑色覆盖层遮住 | 跳过已确认的 1280×720 黑色绘制 | `pal3-black-overlay-skip=1` 且进程为 `PAL3.exe` |\n| 游戏帧间隔为 0，剧情不推进 | 修正 Box64 ARM64 dynarec 的 FNSAVE/FRSTOR 80 位浮点转换方向 | x87 指令语义修复，对使用这些指令的游戏均生效 |\n| 流畅视频显示在角落 | 将视频源区域 `(0,75)–(800,525)` 呈现在窗口中央 | `pal3-movie-center=1` 且进程为 `PAL3.exe` |\n| 地震视频后剧情停住、声音循环噪音 | 保留用户确认正常时的配置组合，其中 `profile=1` 仍开启 | PAL3 配置；原因尚未通过单变量测试确定 |\n\n两个 PAL3 专用开关相互独立，值为 `0` 或删掉该行即关闭对应修复。`wined3d-explicit-buffer-flush=0` 也只在 PAL3 配置生效。`profile=1` 会产生线程采样日志；它出现在唯一确认片尾剧情与声音正常的真机组合中，因此暂时保留。要清除这项日志，需要单独关闭后在真机复测片尾。视频缩放保持用户接受的居中效果，不再调整为铺满屏幕。\n\n当前源码已定向编译，NRO、D3D9 和 WineD3D DLL 已上传真机并读回核对。用户重新测试后确认仙剑三目前运行无问题；配置包内三份 PAL3patch 5.1 文件的安装与恢复流程通过主机测试，尚未在真机上从配置包完整安装和恢复。\n\n## 控件\n\n| Switch 控件 | 游戏输入 |\n|---|---|\n| 左摇杆 | 方向键；首次推动自动短按、松开、再持续按住，触发游戏的双击奔跑 |\n| 十字键上 / 下 / 左 / 右 | 分别点击战斗菜单的「技」`(240,466)` /「物」`(240,577)` /「术」`(186,521)` /「防」`(292,518)` |\n| 右摇杆 | 移动鼠标指针 |\n| A | 空格，互动 |\n| B | Esc，取消或返回 |\n| X | Tab，切换 |\n| + | 在屏幕右上角坐标 `(1240,40)` 点击一次，模拟触摸菜单按钮 |\n| Y | 点击战斗菜单的「击」`(240,522)` |\n| R | 鼠标左键 |\n| 右摇杆按下 | 点击战斗菜单的「逃」`(270,550)` |\n| L | R，重复上一次攻击方式 |\n| - / 左摇杆按下 | 鼠标右键 |\n| 触屏 | 鼠标移动和左键点击 |\n| ZL / ZR | D / A，旋转镜头 |\n\n上述战斗菜单坐标和按键用途来自本次提供的映射文件，尚需 Switch 真机核对。\n",
+      "category": "仙剑系列",
+      "verification": "unverified",
+      "verificationNote": "原记录已有用户运行正常反馈；当前适配与各项操作仍需按具体版本核对。",
+      "targetVersion": "简体中文版 · PAL3.exe · PAL3patch 5.1",
+      "knownIssues": [
+        "曾出现偶发启动崩溃，原因尚未单独定位。",
+        "战斗菜单快捷键仍待逐项实机核对。"
+      ]
+    },
+    {
+      "id": "pal3a",
+      "name": "仙剑奇侠传三外传·问情篇",
+      "version": 1,
+      "minApi": 5,
+      "keywords": "仙剑三外传 仙劍三外傳 问情篇 問情篇 PAL3A Chinese Paladin 3 Plus",
+      "description": "适用于根目录 PAL3A.exe 的简体中文版首轮测试；沿用游戏目录自带的 PAL3Apatch，不包含仙剑三补丁文件。",
+      "cover": "/covers/pal3a.png",
+      "readme": "# 仙剑奇侠传三外传·问情篇首版适配包\n\n目标是游戏根目录的 32 位 `PAL3A.exe`。首版包包含启动器设置、按键、空金手指列表和封面，不包含游戏本体、存档或补丁 DLL。封面根据用户提供的实体盒封照片整理成 600×900 图片，保留“外传”红印，去除了拍摄背景、零售贴纸及底部促销小字，并非原盒封的逐像素扫描。游戏目录中已有的 `PAL3Apatch.conf`、`PAL3Apatch.dll` 和 `PAL3A.dll` 原样保留；不要安装仙剑三的 `PAL3patch` 文件。\n\n本地样本的 `PAL3A.exe` 为 1392128 字节，SHA-256 为 `e49b35bb0add6b2872cc362ce72ddecd737b0c38d0a4bebaec19c462c204a304`。游戏说明文件要求 DirectX 9，目录中带有 Bink 和 Miles 音频 DLL。`config.ini` 与本地仙剑三相同，均为 800×600、32 位色、全屏。现有 `PAL3Apatch` 插件日志标记为 1.9 版，配置中的 `nolockablebackbuffer=1` 保持原值。包里使用 WineD3D 和键盘映射作为首轮测试起点；未移植仙剑三只针对 `PAL3.exe` 的黑色覆盖层与电影居中修正，也未沿用仙剑三专属的固定坐标点击。\n\n## 首轮按键\n\n| Switch 控件 | 发送给游戏的输入 |\n| --- | --- |\n| 左摇杆、十字键 | 方向键；左摇杆带双击奔跑序列 |\n| 右摇杆左右 | A / D，预计用于转动镜头 |\n| A / B / Y | 空格 / Esc / Enter |\n| X / - | M |\n| L / R | Q / Tab |\n| + | Esc |\n| ZR / ZL | 鼠标左键 / 右键 |\n| 触屏 | 鼠标移动与左键点击 |\n| 左摇杆按下 | Shift |\n\n这些按键沿用仙剑三的基本操作思路，外传尚未在 Switch 上验收；若菜单位置或操作不同，应依据实机画面和本轮日志单独调整。\n\n## 首轮实机验收\n\n1. 选择游戏根目录的 `PAL3A.exe`，安装 `pal3a` 适配包并启动。\n2. 分别检查启动、片头视频、主菜单、场景、战斗和剧情画面，记录黑屏或定位异常。\n3. 检查音乐、音效、摇杆与触屏；确认 A、B、Y、+ 等键在菜单和游戏内的实际作用。\n4. 新建存档、完全退出后重新进入并读档，再检查退出与持续运行。\n5. 遇到失败，保留本次启动的游戏日志与画面，先确认其版本和时间，再做单项调整。\n",
+      "category": "仙剑系列",
+      "verification": "unverified",
+      "verificationNote": "首轮测试配置，尚未完成 Switch 实机验收。",
+      "targetVersion": "简体中文版 · 根目录 PAL3A.exe",
+      "knownIssues": [
+        "启动、画面、按键和存读档均待验证。",
+        "现有 PAL3Apatch 与仙剑三的 PAL3patch 不通用。"
+      ]
+    },
+    {
+      "id": "zhaoyunzhuan",
+      "name": "三国赵云传1",
+      "version": 1,
+      "minApi": 12,
+      "keywords": "三国赵云传 三國趙雲傳 ZhaoYun zhaoyunzhuan",
+      "description": "适用于《三国赵云传》2002ls 补丁版；遇到指定版本的本地 DDraw.dll 时校验并停用。",
+      "cover": "/covers/zhaoyunzhuan.png",
+      "readme": "# 《三国赵云传》手柄配置\n\n将 `Game.keys.txt` 放在 Switch 的 `switch/wine/drive_c/ZhaoYun/Game.exe` 旁边，并在 Autorun 的游戏设置中启用“使用游戏专用按键”。此文件只影响这款游戏。\n\n这份 2002ls 版本的游戏会用 DirectInput 相对位移更新自己的光标。通过主程序应用赵云传适配包时，会直接核对当前选择的 `Game.exe`，匹配后保存为 `Game.exe.autorun-before-profile-patch`，再用主程序内置的原生补丁器启用绝对鼠标模式。包内只有 SHA-256、偏移和替换字节，不执行下载的代码；哈希不匹配时不会修改游戏。主程序中的“恢复上次配置”会同时恢复原始 EXE。安装包不含游戏本体。\n\n部分重新打包的 2002ls 版本在游戏目录中附带 dgVoodoo `DDraw.dll`。它与赵云传2测试目录中的 DLL 完全相同，SHA-256 为 `0279b2a2a8d8f208bb0d40131d6ae42cbee9c271f234cb4a25dac9914d0d27b4`。API 12 起，适配包通过通用清单能力声明这项操作：应用时核对 DLL，将匹配的文件停用并保留为 `DDraw.dll.autorun-disabled`；“恢复上次配置”会还原它。没有这份 DLL 的旧安装目录不受影响，其他版本的同名 DLL 不会被修改。已有版本 1 的适配包可在“选择 / 更换适配包”中手动重装以应用这项规则；真机启动效果仍需验证。\n\n`patch-game.py` 仍保留为电脑端手动工具，和自动适配共用 `binary-patch.json`，不需要在 Switch 上运行。\n\n在 `Game.exe` 旁边的 `Game.wine-nx.txt` 中设置：\n\n```text\naddress-space=32-bit\nown-controls=1\naspect-fit=800x600\ntouch-coordinates=screen\nleft-stick-run=shift\nleft-stick-eight-way=1\nleft-stick-aim=140\nleft-stick-move=mouse\n```\n\n`address-space=32-bit` 固定通过 32 位地址空间运行。此 EXE 可以重定位，上游自动路由会允许它使用 39 位地址空间，但下雪时的 OpenGL 缓冲映射会触发大量 WoW64 内存复制。此前 32 位运行日志中的 `copy_mb=0`；固定此项用于恢复该运行条件，下雪场景的帧率仍需实机验证。需要已安装 Autorun 32-bit 转发器；仅修改配置无需重编译游戏 DLL。\n\n`aspect-fit` 将完整的 4:3 游戏画面居中；`touch-coordinates=screen` 让触屏坐标按 Switch 的 1280×720 桌面传给这款游戏。只有完成上述可执行文件补丁后，游戏自己的光标才会读取该位置。游戏的键盘方向键在实机上只让角色朝四个方向移动，因此 `left-stick-move=mouse` 让默认摇杆移动改用游戏自己的鼠标路径：按摇杆实际角度沿圆周连续定位光标并按住左键，不再吸附到八个固定点。\n\n`left-stick-aim=140` 设置圆周半径为 140 个 Switch 屏幕像素；中心在游戏显示区域的水平中点、垂直高度的 5/12 处（当前 1280×720 屏幕下为 640,300）。超过死区后，摇杆推得轻重不改变半径；松杆停止模拟按住左键，光标保留在最后位置。`left-stick-eight-way=1` 只控制键盘方向的八分区，不限制鼠标移动角度。按住 L3 时恢复键盘方向键步行，目前仍只有四向。默认摇杆的走／跑速度由游戏底部的“走／跑”按钮决定；若设为“跑”，鼠标移动路径会跑。触屏按住时仍由触点定位。\n\n触点定位、菜单点击和旧版八方向摇杆鼠标斜向移动此前已在 Switch 上确认；新的连续圆周方案、半径距离以及攻击与菜单的相互作用仍待上机验证。\n\n| Switch 操作 | 游戏操作 |\n|---|---|\n| 左摇杆 | 沿圆周连续定位光标并按住鼠标左键移动；按住 L3 改用四方向键步行。游戏底部切到“跑”后，默认鼠标移动会跑 |\n| 右摇杆左 / 上 / 右 | 键盘 A / S / D，切换弓 / 剑 / 枪；右摇杆下不映射 |\n| 十字键上 / 下 / 左 / 右 | 数字键 1 / 2 / 3 / 4，使用道具快捷栏 |\n| L / ZL / R / ZR | 数字键 5 / 6 / 7 / 8，使用道具快捷栏 |\n| A | 空格，对话或普通攻击 |\n| B | 鼠标右键，必杀技及游戏中的右键操作 |\n| X | Ctrl；可与触屏左键一起使用。Ctrl＋空格能否代替 Ctrl＋左键尚未验证 |\n| Y | C，属性界面 |\n| − / + | Esc，物品栏或结束对话 / Tab，小地图 |\n| 触屏 | 直接定位鼠标并按左键；物品栏中轻点拿起、再点目标位置放下，也用于菜单和技能界面 |\n\n右摇杆按下不映射。物品栏需要第二次点击才放下，这是游戏原本的操作方式。手柄的键盘和鼠标操作仍需在 Switch 上逐项实测，特别是武器切换、快捷栏、必杀技及 Ctrl 组合操作。\n",
+      "category": "武侠与角色扮演",
+      "verification": "unverified",
+      "verificationNote": "触点定位、菜单点击和旧版摇杆方案已有实机确认；新方案仍待复测。",
+      "targetVersion": "2002ls 补丁版 · Game.exe",
+      "knownIssues": [
+        "新的连续圆周摇杆移动及攻击、菜单配合仍待验证。",
+        "下雪场景帧率及武器、快捷栏等操作仍待实测。"
+      ]
+    },
+    {
+      "id": "zhaoyunzhuan2",
+      "name": "三国赵云传2·纵横天下",
+      "version": 1,
+      "minApi": 11,
+      "keywords": "三国赵云传2 三国赵云传之纵横天下 三國趙雲傳二 縱橫天下 ZhaoYun2 zhaoyun2",
+      "description": "适用于指定 SHA-256 的 Game.exe 与 DDraw.dll；沿用一代按键与鼠标方案，停用冲突的本地 DirectDraw 封装。",
+      "cover": "/covers/zhaoyunzhuan2.png",
+      "readme": "# 《三国赵云传2·纵横天下》适配包 v1\n\n目标是当前提供的 `zhaoyun2/Game.exe`，原始 SHA-256 为\n`9fc36a955a6addaa8727bd9fd972dbe226c4094b19455b469094b3063c8214ce`。\n本包沿用一代的显示、触屏和手柄映射，并使用同一代码位置的绝对鼠标模式补丁。\n默认配置包含 `address-space=32-bit`，保持现有 32 位运行条件，避免上游自动路由将可重定位的 EXE 转到 39 位地址空间。需要已安装 Autorun 32-bit 转发器；二代天气场景的性能仍需实机验证。\n补丁仍由启动器按完整 SHA-256 校验、备份和恢复；其他版本不会被修改。\n真机启动失败的根因是游戏目录自带的 dgVoodoo `DDraw.dll` 初始化失败。\nAPI 11 起，安装时会校验这份 DLL 的 SHA-256\n`0279b2a2a8d8f208bb0d40131d6ae42cbee9c271f234cb4a25dac9914d0d27b4`，\n将其停用并保留为 `DDraw.dll.autorun-disabled`；“恢复上次配置”会还原它。\n其他版本的同名 DLL 不会被停用。适配包不包含游戏文件、DLL 或存档。\n\n选择游戏目录根部的 `Game.exe`，然后在“游戏配置 → 常规 → 适配包更新”中\n选择“三国赵云传2·纵横天下”。游戏目录已有 `DDraw.dll`、`D3D8.dll`、\n`D3D9.dll` 和 `D3DImm.dll`（dgVoodoo）。本包只停用上述精确版本的\n`DDraw.dll`，保留其余文件。旧版主程序无法应用此包，需先更新到 API 11。\n\n真机已确认停用本地 `DDraw.dll` 后能够启动；新包内的自动停用流程仍需重新上机验证。\nSwitch 上仍需逐项验证\n画面、触屏和摇杆移动、按键、MP3 音乐、Indeo AVI 视频、音效、存档、\n读档、退出和重启。按键映射目前与一代相同，二代的实际操作尚待确认。\n",
+      "category": "武侠与角色扮演",
+      "verification": "unverified",
+      "verificationNote": "已确认停用冲突图形库后能够启动；当前自动处理和完整游戏流程仍待验证。",
+      "targetVersion": "纵横天下 · 已核对的 Game.exe 版本",
+      "knownIssues": [
+        "二代按键、触屏和摇杆移动尚待核对。",
+        "音乐、视频、存读档和持续运行尚未完成验收。"
+      ]
+    },
+    {
+      "id": "swordman",
+      "name": "天地劫：神魔至尊传",
+      "version": 1,
+      "minApi": 17,
+      "keywords": "天地劫 神魔至尊传 神魔至尊傳 Swordman SWORDMAN",
+      "description": "适用于已验证的 Swordman V1.3 游戏目录；自动备份并安装 cnc-ddraw、现有布局的 ddraw.ini、完整 Miles 兼容库、运行设置、按键与 Box64 参数，无需手动改名 DLL。",
+      "cover": "/covers/swordman.png",
+      "readme": "# 天地劫：神魔至尊传 Swordman V1.3 适配包\n\n本包针对 SHA-256 为 `b1d7dba03506427fc3f9046f16ea564f454f5949a21cfc701b1861369fc77ae2` 的 `Swordman.exe`，要求运行时适配包 API 17。它安装运行设置、按键、Box64 参数、封面，并整文件替换游戏目录中的 `ddraw.dll`、`ddraw.ini` 和完整的 Miles 兼容库 `mss32.dll`。文件不存在时直接拷贝；文件存在时由适配包事务备份后覆盖，支持“恢复上次配置”。无需提前改名、准备原库别名或手动复制 DLL。\n\n`ddraw.dll` 和完整的 `ddraw.ini` 来自已适配的 Swordman 游戏目录；二者 SHA-256 分别为 `85e0f7d530dfda134793a57cb3e76b0287dcc96892ee57162dd68f47283b03a9` 和 `3a8def500843d57da27b47b3a129018e6f9b93cbf76ecb0d0655375706fb64fa`。`ddraw.ini` 是整文件替换，安装后原有自定义设置会进入适配包备份。cnc-ddraw 的 MIT 许可随包安装为 `cnc-ddraw.LICENSE`。\n\n完整 Miles 兼容库为 331776 字节，SHA-256 `f2d040218d7e63f83c799b005f688c1b4b150994442996b4c4929a46a1f15743`。构建阶段使用已核对的 Miles 5.0m 库，只将文件偏移 `0x13bd` 的 `TEST EAX,EAX` 改为 `XOR EAX,EAX`，使音频定时器的局部暂停标志为零；原有分支因此跳过 `SuspendThread` 与对应的 `ResumeThread`，不再因 Horizon 拒绝暂停线程而跳过音频服务。315 个原始导出、导入表、重定位与资源保持不变。修改说明及原版权归属随包安装为 `mss32-compat.NOTICE`。\n\n包内 DLL 不含转发到 `mss32_autorun_original.dll` 的导出，也不加载该文件。安装时不寻找或校验用户提前准备的原库；已有手动别名保持原样。原库哈希只用于维护者构建此完整 DLL，不是用户安装前提。旧代理源码与复现工具仍保留在兼容目录中。\n\n主机已验证文件缺失时安装、已有文件的备份覆盖与精确恢复、重复安装、旧别名不参与安装，以及每个提交中断/失败位置的回滚。指令仿真覆盖不同暂停配置、重定位后的装载地址、停止的定时器、回调参数和栈清理；完整 DLL 的新真机音频/视频验收仍待完成。\n\n安装后完全退出并重新启动游戏，分别核对画面位置、音乐、音效、视频、按键、存读档及退出。历史真机记录见 [`../../compat/swordman-miles/README.zh-CN.md`](../../compat/swordman-miles/README.zh-CN.md)；本次打包不等于新的真机验证。\n",
+      "category": "武侠与角色扮演",
+      "verification": "unverified",
+      "verificationNote": "当前完整 Miles 兼容库仍待新的实机音频与视频验收。",
+      "targetVersion": "V1.3 · Swordman.exe",
+      "knownIssues": [
+        "画面位置、音乐、音效、视频和存读档需按当前适配版本复测。"
+      ]
+    },
+    {
+      "id": "biko3",
+      "name": "尾行3",
+      "version": 1,
+      "minApi": 18,
+      "keywords": "尾行3 尾行 Biko3 Biko_DVD 美少女游戏",
+      "description": "适用于已核对的 Biko_DVD.exe；自动补齐实际安装目录注册项、Data/catalog，启用单游戏图形设置并安装 ddraw.dll、d3d9.dll、ddraw_.dll。",
+      "cover": "/covers/biko3.png",
+      "readme": "",
+      "category": "其他",
+      "verification": "unverified",
+      "verificationNote": "尚未在本站收录详细实机验收记录。",
+      "targetVersion": "已核对的 Biko_DVD.exe 版本",
+      "knownIssues": [
+        "详细适用版本和已知问题资料待补充。"
+      ]
+    },
+    {
+      "id": "zero-time-dilemma",
+      "name": "Zero Escape: Zero Time Dilemma",
+      "version": 1,
+      "minApi": 19,
+      "keywords": "Zero Escape Zero Time Dilemma 极限脱出 零时困境 311240",
+      "description": "适用于已验证的 AppID 311240 文件；安装 OpenAL、按键和 RUNE 数据目录，首次启动前自动注册 DirectInput8。",
+      "cover": null,
+      "readme": "# Zero Escape: Zero Time Dilemma 适配包\n\n适用于已核对的 Steam AppID 311240 游戏文件及 32 位 `Zero Escape.exe`。本包不包含游戏本体、存档、Steam API 或 DXVK DLL，也不修改游戏 EXE。需要支持适配包 API 19 的 AutoRun 主程序和配套运行时。\n\n安装内容：\n\n- 游戏目录下安装 OpenAL Soft 1.25.2 的 32 位 `OpenAL32.dll` 及许可证。它补齐游戏导入的 OpenAL 符号。\n- 创建 `C:\\users\\Public\\Documents\\Steam\\RUNE\\311240`，供本测试版本的 Steam API 写入数据。适配包通过目录内的 `profile-directory.txt` 创建父目录；恢复配置只移除该占位文件，不删除游戏后来写入的数据。\n- 设置游戏专属 `d3d=dxvk`、`controller=keyboard` 和已在标题菜单验证的按键：方向键/左摇杆移动、A 确认、B 取消。其他键位以 `Zero Escape.keys.txt` 为准。\n- 设置 `register-com32=dinput8.dll`。新 Wine 前缀首次启动游戏时，主程序自动运行 32 位注册助手，在当前前缀注册运行时自带的 DirectInput8 DLL，成功后继续启动游戏。\n\n## 首次使用\n\n1. 安装支持 API 19 的主程序与运行时，然后在启动器中给 `Zero Escape.exe` 安装此适配包。\n2. 启动游戏。首次启动会自动注册 DirectInput8；若注册失败，游戏不会继续启动，日志会出现 `[COM32]` 或 `[AUTORUN COM32]`。\n\n当前设备已验证游戏进入标题菜单、A/B 和方向输入正常。原版 DXVK 3.1.1、1280×720 下默认频率约 15 FPS；超频后一次稳定段约 24 FPS。Sarek DX11 对照约 14 FPS，已从设备恢复原版 DXVK。游戏剧情、视频、存档和长时间运行尚未验收。\n\nOpenAL Soft 二进制取自 [官方 1.25.2 Windows 发布包](https://github.com/kcat/openal-soft/releases/tag/1.25.2)，`bin/Win32/soft_oal.dll` 按发布包说明重命名为 `OpenAL32.dll`。源代码和许可证见该发布页及本目录的 `OpenAL32.LICENSE`、`OpenAL32-pffft.LICENSE`。\n",
+      "category": "动作与冒险",
+      "verification": "unverified",
+      "verificationNote": "已确认进入标题菜单，方向输入及 A/B 正常；尚未完成剧情流程验收。",
+      "targetVersion": "Steam AppID 311240 · 32 位 Zero Escape.exe",
+      "knownIssues": [
+        "原记录中默认频率约 15 FPS，表现受设备设置影响。",
+        "剧情、视频、存档和长时间运行尚未验收。"
+      ]
+    },
+    {
+      "id": "swd4",
+      "name": "轩辕剑肆",
+      "version": 1,
+      "minApi": 5,
+      "keywords": "轩辕剑肆 轩辕剑四 軒轅劍肆 軒轅劍四 SWD4 XuanYuan Sword IV",
+      "description": "根目录 swd4.exe 测试；参考苍之涛的 DXVK、800x600 与按键，附 600×900 封面；简体环境与精确哈希字体补丁统一宋体并关闭绘字抗锯齿，对话字体已真机验证，其余兼容性待测试。",
+      "cover": "/covers/swd4.png",
+      "readme": "# 轩辕剑肆字体测试适配包\n\n本包用于根目录 `swd4.exe`，参考用户提供的《轩辕剑4外传苍之涛 按键和画面设置》，保留 `d3d=dxvk`、`aspect-fit=800x600` 和原按键布局。额外设置游戏库标题为“轩辕剑肆”。原配置的 `PLUS`、`MINUS`、`STICKL`、`STICKR` 空值规范为等效的 `0`，以通过适配包校验。\n\n附 `cover.png`，尺寸 600×900（2:3），使用 imagegen 参考用户提供的原盒绘制作，保留“軒轅劍肆／黑龍舞兮雲飛揚”标题。应用适配包时由现有封面框架安装为该 EXE 的托管封面，不需要新增主程序功能。\n\n字体设置为 `locale=zh_CN.UTF-8`。真机日志确认 LCID 为 `0x0804`、DPI 为 96，设备宋体文件可以加载；单独修改 locale 后，用户仍反馈字形异常。\n\n原 EXE 的字体初始化先在 `0x418262` 请求 GBK“宋体”，随后对话等初始化在 `0x49ed4f`、`0x4a335e`、`0x4cf0f4` 等位置改用 `0x515e7c` 的 `b2 d3 a9 fa c5 e9`，即 Big5“細明體”。`CreateFontIndirectA` 按系统 ANSI 编码转换字体名称，简体环境会把这个残留字体名解错。截图可见字距基本整齐但笔画粗糙；现有日志没有捕获该字体最终选中的替代字族，因此替代字体是待验证的原因。\n\n另一个明确的绘字约束在 `0x41a470`：游戏把 GDI 生成的 16 位文字图中每个非零像素都当作实心笔画，再缓存为 1 位字形。默认抗锯齿产生的灰边也会变成实心笔画。\n\n`binary-patch.json` 只修改文件偏移 `0x18841` 起的 32 字节（VA `0x418841`）：在同一字体构造函数中固定使用原程序已有的 GBK“宋体”常量，并把 `lfQuality` 设为 `NONANTIALIASED_QUALITY=3`。保留原字号、最大字号 64、零宽度、字重 400、`GB2312_CHARSET`、字距及所有文字缓存尺寸。补丁前后机器码执行已核对 36 组字号、字体名及已有字体句柄组合，确认栈、保存寄存器和原字号参数保持一致；这不代替字体显示的真机验收。\n\n2026-10-03 真机验证：用户重启后反馈“好了”，同一段“姬伯常：你们可否有发现任何异状？”对话的对比照片确认字形、笔画和字距正常，之前的异常加粗消失。当前组合补丁已解决该画面的字体问题；尚未分别测试字体名修正与关闭抗锯齿各自的作用，也未据此判定全部界面及整款游戏兼容完成。\n\n左摇杆及十字键发送方向键；右摇杆移动鼠标，触屏操作鼠标；A/Y 发送空格，B 发送 Esc，X 发送 Enter，L/R 发送 M/R，ZL/ZR 发送 Q/E。上述功能在本传中的含义待实机验证。保留的 `RLEFT/RRIGHT` 映射在 `RSTICK=mouse` 时不发送 Q/E。\n\n补丁只接受原 EXE SHA-256 `e368d24723da2fc3b5ab4943523da5afb5fcd0b0cc7f948b541746c81d4d4252`，补丁后为 `7ebefac2b44fb83fabe534b4a54cafa5ef4a03ca6a6e1f4759938f11063d13ec`。不匹配的版本不应用补丁。适配框架先保存原 EXE 为 `swd4.exe.autorun-before-profile-patch`，恢复适配可还原原程序。本包不包含完整游戏 EXE、DLL、字体、数据、`User.cfg` 或存档，不添加图形封装、Miles 补丁或 Box64 参数。\n\n这是测试包，选择 DXVK 不代表旧 DirectDraw/Direct3D3 已由 DXVK 接管。分别验证启动、字体、画面、帧率、Bink 视频、音乐、音效、按键、触屏、存读档和退出。打包及主机校验不能代替 Switch 真机验收。\n",
+      "category": "武侠与角色扮演",
+      "verification": "unverified",
+      "verificationNote": "2026-10-03 已确认指定对话画面的字体恢复正常；不代表所有界面与完整游戏均已验证。",
+      "targetVersion": "根目录 swd4.exe · 需匹配指定程序版本",
+      "knownIssues": [
+        "其他界面字体、按键、视频和存读档等仍需逐项验证。"
+      ]
+    },
+    {
+      "id": "czt",
+      "name": "轩辕剑外传：苍之涛",
+      "version": 1,
+      "minApi": 5,
+      "keywords": "苍之涛 蒼之濤 轩辕剑外传 SWDMD_GB SWDMD CZT",
+      "description": "用于根目录 SWDMD_GB.EXE；DXVK、800x600、原按键与600×900封面；简体环境及精确哈希字体补丁统一宋体并关闭绘字抗锯齿，待真机测试。",
+      "cover": "/covers/czt.png",
+      "readme": "# 苍之涛字体测试适配包\n\n用于游戏根目录 `SWDMD_GB.EXE`，不是 `czt.exe`（该文件是 RAR 自解压程序），也不是另一份 `SWDMD.EXE`。保留用户提供的 `d3d=dxvk`、`aspect-fit=800x600` 和按键；添加游戏库标题。四个空键值 PLUS/MINUS/STICKL/STICKR 规范为等效的 0。\n\n左摇杆及十字键发送方向键；右摇杆移动鼠标，触屏操作鼠标；A/Y 空格确认，B Esc 取消，X Enter 菜单，L M 地图，R R 走跑，ZL/ZR Q/E 旋转。保留的 RLEFT/RRIGHT 在 RSTICK=mouse 下不会发送 Q/E。\n\n本包使用简体环境 locale=zh_CN.UTF-8，并附精确哈希字体补丁。只改目标 SWDMD_GB.EXE 文件偏移 0xc7dc 起的 31 字节：字体构造函数固定传入原程序已有的 GBK“宋体”常量 0x4e3210，同时将 lfQuality 改为 NONANTIALIASED_QUALITY=3，保留原字号、字距、字重、字符集、文字表面及缓存。补丁绑定原 SHA-256，修改前由现有框架保存 EXE，恢复适配可还原原程序；无需新增主程序功能。包中不包含完整 EXE、字体、DLL、游戏数据、User.cfg 或存档。\n\n2026-10-03 只读诊断：真机 `SWDMD_GB.EXE` 与本地文件相同，983040 字节，SHA-256 `5906d20c1a56a65b6d9fcd08db1fd1a72063c357eb5f1409a941f21c2de031a8`。本轮读取日志时的真机配置只有 d3d=dxvk，日志 LCID=0x0409；debug.txt 记录 GDI 及游戏初始化完成。该日志未记录实际选中的字体，也没有确认字体异常画面的本轮复现。\n\nEXE 的字体构造函数 0x40c78f 使用 CreateFontIndirectA，字号上限 64、负高度、宽度 0、字重 400、GB2312_CHARSET=134、默认绘字质量 0。初次构造在 0x40c492 传入 0x4e3210 的 GBK“宋体”；后续 0x472623、0x474b91、0x4981cf 等位置传入 0x4e7634 的 b2 d3 a9 fa c5 e9，即 Big5“細明體”。简体版中存在字体名编码混用，实际 ANSI 环境及字体替代结果需要进一步验证；不能把日志 LCID 直接当成实际字体选取证据。\n\nGDI 文字写入 64×64 的临时表面，先用两个空格清理，再 TextOutA 绘字。0x40daf0 将白色文字复制为一位字形；0x40db54 对每个 16 位像素只判断是否非零，0x40db6c 将其置为实心。灰色抗锯齿边缘因此也会成为完整笔画。这与《轩辕剑肆》已修复路径存在相同缺陷，但尚未以苍之涛的实际字体选择或对比画面确定两项各自影响。\n\n用户确认异常主要在菜单及物品说明后，授权采用轩辕剑肆的修正思路；补丁重新针对苍之涛的实际机器码制作，未复用另一游戏的偏移。36 组原/改机器码执行校验确认栈、保存寄存器、字号、字重、字符集、字格及字体句柄更新行为保持一致。补丁后 SHA-256 为 `f087603bf6936ac3401dc48b3e0e46bb5bed6b0b8cd37ac63ef1e0b29829ddbc`，效果待菜单/物品说明真机验收。完整兼容性仍需分别测试启动、文字、画面、帧率、视频、音乐、音效、输入、触屏、存读档和退出；包校验不代替真机验收。\n\n封面直接取自用户最后提供的原盒照片，仅裁切画面、校正透视并缩放到 600×900（2:3）。保留原图人物、标题和题字，不重新绘制文字。游戏库及适配包标题统一为“轩辕剑外传：苍之涛”。\n",
+      "category": "武侠与角色扮演",
+      "verification": "unverified",
+      "verificationNote": "菜单与物品说明的字体调整仍待实机验收。",
+      "targetVersion": "简体版 · 根目录 SWDMD_GB.EXE",
+      "knownIssues": [
+        "文字、画面、视频、输入和存读档等兼容性尚未完成验证。"
+      ]
+    },
+    {
+      "id": "dmc4-dx9",
+      "name": "鬼泣4",
+      "version": 1,
+      "minApi": 14,
+      "keywords": "鬼泣4 惡魔獵人4 Devil May Cry 4 DMC4 DX9",
+      "description": "原版 DX9，沿用已测试的游戏配置；Autorun 设为 Wine 渲染、帧缓冲显示，新设置待真机验证；完整替换游戏用户目录中的 config.ini。",
+      "cover": "/covers/dmc4-dx9.png",
+      "readme": "# 鬼泣4（原版 DX9）\n\n入口为游戏根目录的 `DevilMayCry4_DX9.exe`。2026-09-26 用户确认当前真机配置可玩；本包以本轮重新读取的配置和按键为基准，不包含游戏本体、存档或 DLL。\n\n本包要求运行时 API 14。应用时完整替换 `C:\\users\\steamuser\\AppData\\Local\\CAPCOM\\DEVILMAYCRY4\\config.ini`，目录缺失时创建；原文件随适配包一起备份，可通过“恢复上次配置”还原。整文件替换会覆盖已有画质、声音、线程和手柄选项；更新时同样直接替换。\n\n收录文件为 782 字节，SHA-256：`1084e27184f548911f005308385f4527af4a9c5a6ac3c9e14bf608347a0ec816`。画质与性能选项沿用 2026-09-26 20:44 重新读取的真机配置：1280×720、纹理和光照 MEDIUM、三线性过滤、特效质量及数量 LOW，关闭 SLI、动态模糊、法线贴图、高光、深度纹理及阴影。保留 `[CPU] JobThread=1`、`RenderingThread=OFF`。2026-09-27 按用户要求将 Autorun 渲染器改为 Wine（`d3d=wine`）、窗口显示方式改为帧缓冲（`windows=framebuffer`）；继续使用 32 位地址空间、`own-controls=1`、`verbose=0`。这两个新设置尚未经过真机验证。\n\n按用户要求在 Autorun 按键映射中交换 A/B、X/Y：`A=0x200`、`B=0x201`、`X=0x202`、`Y=0x203` 分别发送手柄 A/B/X/Y。这些映射直接作用于 XInput，按键选择列表中显示为“手柄 A/B/X/Y”。游戏 `[JOYPAD]` 恢复为原来的 `A=2`、`B=1`、`X=3`、`Y=0`，由按键映射统一负责交换。\n\n此前设备日志实际加载游戏目录自带的 `DXVK v3.1-17-g878473ba`。游戏目录的本地 `d3d9.dll` 仍有加载优先级；本包的 `d3d=wine` 关闭 Autorun 提供的 DXVK 路径，但不移动本地 DLL，也不自动添加 DLL，实际渲染器需以新启动日志确认。系统运行时应使用已补齐 AVIFIL32.dll 的全量组件包。\n\n封面为 600×900 PNG，来自 [LaunchBox 鬼泣4 图片库](https://gamesdb.launchbox-app.com/games/images/3687-devil-may-cry-4)，[原图](https://images.launchbox-app.com/c0c3b1bb-052b-444c-b9d5-2a48a0fb9055.jpg)转换为 PNG 后原样收录；应用适配包时设为游戏库封面。\n\n本次本地包检查和文件替换/恢复主机测试不代替新包的真机应用及恢复验收。\n",
+      "category": "动作与冒险",
+      "verification": "unverified",
+      "verificationNote": "已有较早配置可玩的用户反馈；当前 Wine 渲染与帧缓冲设置仍待实机验证。",
+      "targetVersion": "原版 DX9 · DevilMayCry4_DX9.exe",
+      "knownIssues": [
+        "新的显示与渲染设置尚未验收。",
+        "游戏目录自带图形库可能影响实际使用的渲染器。"
+      ]
+    }
+  ]
+}

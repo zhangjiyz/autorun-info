@@ -1,0 +1,114 @@
+{
+  "newpal-steam": {
+    "category": "仙剑系列",
+    "targetVersion": "Steam 版 2.17.102.0 · NewPAL_Release.exe",
+    "verificationNote": "显示、输入和音效调整尚待完整实机验收。",
+    "knownIssues": [
+      "方向键响应与菜单等待时长仍待复测。",
+      "画面居中、触屏和游戏音效尚未完成验收。"
+    ]
+  },
+  "newpalxp": {
+    "category": "仙剑系列",
+    "targetVersion": "2001 / XP 版 · 根目录 Palgame.exe",
+    "verificationNote": "已确认读档后的画面、输入、背景音乐、按键音效及首次菜单速度；完整流程仍待验证。",
+    "knownIssues": [
+      "开场视频自然结束与跳过、游戏内视频仍待完整验证。",
+      "存档写入、退出重启和持续运行尚未完成验收。"
+    ]
+  },
+  "pal2": {
+    "category": "仙剑系列",
+    "targetVersion": "1.05 版 · Pal2.exe",
+    "verificationNote": "战斗画面停止更新的问题已有实机恢复确认；完整流程仍待验证。",
+    "knownIssues": [
+      "长时间战斗和存读档尚未完成验收。"
+    ]
+  },
+  "pal3": {
+    "category": "仙剑系列",
+    "targetVersion": "简体中文版 · PAL3.exe · PAL3patch 5.1",
+    "verificationNote": "原记录已有用户运行正常反馈；当前适配与各项操作仍需按具体版本核对。",
+    "knownIssues": [
+      "曾出现偶发启动崩溃，原因尚未单独定位。",
+      "战斗菜单快捷键仍待逐项实机核对。"
+    ]
+  },
+  "pal3a": {
+    "category": "仙剑系列",
+    "targetVersion": "简体中文版 · 根目录 PAL3A.exe",
+    "verificationNote": "首轮测试配置，尚未完成 Switch 实机验收。",
+    "knownIssues": [
+      "启动、画面、按键和存读档均待验证。",
+      "现有 PAL3Apatch 与仙剑三的 PAL3patch 不通用。"
+    ]
+  },
+  "zhaoyunzhuan": {
+    "category": "武侠与角色扮演",
+    "targetVersion": "2002ls 补丁版 · Game.exe",
+    "verificationNote": "触点定位、菜单点击和旧版摇杆方案已有实机确认；新方案仍待复测。",
+    "knownIssues": [
+      "新的连续圆周摇杆移动及攻击、菜单配合仍待验证。",
+      "下雪场景帧率及武器、快捷栏等操作仍待实测。"
+    ]
+  },
+  "zhaoyunzhuan2": {
+    "category": "武侠与角色扮演",
+    "targetVersion": "纵横天下 · 已核对的 Game.exe 版本",
+    "verificationNote": "已确认停用冲突图形库后能够启动；当前自动处理和完整游戏流程仍待验证。",
+    "knownIssues": [
+      "二代按键、触屏和摇杆移动尚待核对。",
+      "音乐、视频、存读档和持续运行尚未完成验收。"
+    ]
+  },
+  "swordman": {
+    "category": "武侠与角色扮演",
+    "targetVersion": "V1.3 · Swordman.exe",
+    "verificationNote": "当前完整 Miles 兼容库仍待新的实机音频与视频验收。",
+    "knownIssues": [
+      "画面位置、音乐、音效、视频和存读档需按当前适配版本复测。"
+    ]
+  },
+  "biko3": {
+    "category": "其他",
+    "targetVersion": "已核对的 Biko_DVD.exe 版本",
+    "verificationNote": "尚未在本站收录详细实机验收记录。",
+    "knownIssues": [
+      "详细适用版本和已知问题资料待补充。"
+    ]
+  },
+  "zero-time-dilemma": {
+    "category": "动作与冒险",
+    "targetVersion": "Steam AppID 311240 · 32 位 Zero Escape.exe",
+    "verificationNote": "已确认进入标题菜单，方向输入及 A/B 正常；尚未完成剧情流程验收。",
+    "knownIssues": [
+      "原记录中默认频率约 15 FPS，表现受设备设置影响。",
+      "剧情、视频、存档和长时间运行尚未验收。"
+    ]
+  },
+  "swd4": {
+    "category": "武侠与角色扮演",
+    "targetVersion": "根目录 swd4.exe · 需匹配指定程序版本",
+    "verificationNote": "2026-10-03 已确认指定对话画面的字体恢复正常；不代表所有界面与完整游戏均已验证。",
+    "knownIssues": [
+      "其他界面字体、按键、视频和存读档等仍需逐项验证。"
+    ]
+  },
+  "czt": {
+    "category": "武侠与角色扮演",
+    "targetVersion": "简体版 · 根目录 SWDMD_GB.EXE",
+    "verificationNote": "菜单与物品说明的字体调整仍待实机验收。",
+    "knownIssues": [
+      "文字、画面、视频、输入和存读档等兼容性尚未完成验证。"
+    ]
+  },
+  "dmc4-dx9": {
+    "category": "动作与冒险",
+    "targetVersion": "原版 DX9 · DevilMayCry4_DX9.exe",
+    "verificationNote": "已有较早配置可玩的用户反馈；当前 Wine 渲染与帧缓冲设置仍待实机验证。",
+    "knownIssues": [
+      "新的显示与渲染设置尚未验收。",
+      "游戏目录自带图形库可能影响实际使用的渲染器。"
+    ]
+  }
+}

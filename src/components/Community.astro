@@ -1,0 +1,35 @@
+---
+import Icon from './Icon.astro';
+interface Props { gameId: string; gameName: string; }
+const { gameId, gameName } = Astro.props;
+---
+<section id="community" class="community section-divider" data-game-id={gameId} aria-labelledby="community-title">
+  <div class="section-title"><div><h2 id="community-title"><Icon name="link"/>玩家网盘分享</h2><p class="section-subtitle">由玩家提供，提交后即时公开。</p></div><button type="button" class="button primary small" data-open-share><Icon name="plus" size={16}/>发布分享</button></div>
+  <p id="community-message" class="inline-message" role="status" aria-live="polite" hidden></p>
+  <div id="shares-loading" class="shares-loading" role="status">正在加载玩家分享…</div>
+  <div id="shares-list" class="shares-list"></div>
+  <div id="shares-empty" class="empty-state share-empty" hidden><Icon name="link" size={32}/><h3>这里还没有网盘分享</h3><p>有这个游戏的分享链接？来发布第一条。</p><button type="button" class="button secondary small" data-open-share>分享我的链接</button></div>
+  <div id="shares-error" class="empty-state" hidden><p id="shares-error-text">分享暂时加载失败。</p><button type="button" class="button secondary small" id="retry-shares">重新加载</button></div>
+  <nav id="share-pagination" class="pagination" aria-label="分享分页" hidden><button type="button" class="button secondary small" id="previous-page">上一页</button><span id="current-page"></span><button type="button" class="button secondary small" id="next-page">下一页</button></nav>
+  <noscript><p class="notice">启用 JavaScript 后可以浏览和发布网盘分享。</p></noscript>
+</section>
+<dialog id="share-dialog" class="share-dialog" aria-labelledby="share-dialog-title">
+  <div class="dialog-heading"><div><p class="eyebrow">COMMUNITY SHARE</p><h2 id="share-dialog-title">分享网盘链接</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="关闭分享窗口"><Icon name="close"/></button></div>
+  <p class="dialog-game">{gameName}</p>
+  <form id="share-form">
+    <label class="field"><span>网盘链接 <span class="required">*</span></span><input name="url" type="url" required maxlength="512" placeholder="https://pan.baidu.com/s/…" autocomplete="off" autofocus/><small id="supported-providers">支持百度网盘、夸克、阿里云盘、UC 和 123 云盘。</small></label>
+    <div class="form-row"><label class="field"><span>提取码</span><input name="code" type="text" maxlength="32" placeholder="如有，请填写" autocomplete="off"/></label><label class="field"><span>游戏版本 / 语言</span><input name="version" type="text" maxlength="80" placeholder="例如：1.05 简体中文版"/></label></div>
+    <label class="field"><span>分享者昵称 <span class="optional">可选</span></span><input name="nickname" type="text" maxlength="32" placeholder="留空显示为匿名玩家" autocomplete="nickname"/></label>
+    <label class="field"><span>补充说明 <span class="optional">可选</span></span><textarea name="note" maxlength="500" rows="3" placeholder="可以介绍版本区别、文件内容或需要注意的地方。"></textarea></label>
+    <p id="share-form-message" class="form-message" role="status"></p>
+    <div class="dialog-footer"><span>发布后所有人都可以看到。</span><button class="button primary" id="submit-share" type="submit" disabled>发布分享</button></div>
+  </form>
+</dialog>
+<dialog id="report-dialog" class="share-dialog report-dialog" aria-labelledby="report-title">
+  <div class="dialog-heading"><h2 id="report-title">反馈链接失效</h2><button type="button" class="icon-button" data-close-dialog aria-label="关闭反馈窗口"><Icon name="close"/></button></div>
+  <p class="dialog-explanation">如果这个分享已经无法打开，可以反馈给其他玩家。反馈会显示在分享旁边。</p>
+  <form id="report-form"><p id="report-form-message" class="form-message" role="status"></p><div class="dialog-footer"><button type="button" class="button secondary" data-close-dialog>取消</button><button type="submit" class="button primary" id="submit-report" disabled>确认反馈</button></div></form>
+</dialog>
+<script>
+  import '../scripts/community';
+</script>

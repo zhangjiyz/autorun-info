@@ -1,0 +1,37 @@
+---
+import '../styles/global.css';
+import Icon from '../components/Icon.astro';
+interface Props { title?: string; description?: string; }
+const { title = '游戏适配库', description = 'AutoRun 游戏适配信息与玩家网盘分享。' } = Astro.props;
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site) : null;
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#10151a" />
+    <meta name="description" content={description} />
+    <title>{title} · AutoRun</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    {canonical && <link rel="canonical" href={canonical} />}
+    <meta property="og:title" content={`${title} · AutoRun`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    {canonical && <meta property="og:url" content={canonical} />}
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/" aria-label="AutoRun 首页"><img src="/favicon.svg" width="36" height="36" alt=""/><span>AUTORUN<small>游戏适配库</small></span></a>
+        <nav aria-label="主导航"><a class="header-nav" href="/"><Icon name="grid" size={17}/>游戏库</a></nav>
+        <span class="platform-tag"><Icon name="game" size={18}/>Nintendo Switch</span>
+      </div>
+    </header>
+    <div class="page-shell">
+      <main id="main"><slot /></main>
+      <footer class="footer"><span>AutoRun · 游戏适配与玩家分享</span><a href="https://github.com/zhangjiyz/autorun-info" target="_blank" rel="noopener noreferrer">GitHub · 网站源码</a></footer>
+    </div>
+  </body>
+</html>

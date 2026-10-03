@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "autorun-info",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-03",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
+    "not_found_handling": "404-page",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "autorun-info",
+      "database_id": "27f3ad54-bb70-49b5-a44c-221bf39bb06c",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "vars": { "ENVIRONMENT": "production" },
+  "observability": { "enabled": false },
+}
