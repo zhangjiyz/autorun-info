@@ -8,7 +8,7 @@
 npm run sync:catalog -- --source /path/to/autorun-cn
 ```
 
-省略 `--source` 时，仅此同步命令默认读取网站仓库旁的 `../autorun-cn`。脚本只读取 `wine-nx-probe/profiles/catalog.json`、各游戏的 `README.zh-CN.md` 和 catalog 指定的封面；不写入原仓库，也不复制 DLL、适配包 ZIP、游戏本体或设备日志。所有封面逐字节复制，不裁切、不重绘。缺少封面时输出 `null`，缺少说明时输出空字符串，由页面显示文字占位。
+省略 `--source` 时，仅此同步命令默认读取网站仓库旁的 `../autorun-cn`。脚本只读取 `wine-nx-probe/profiles/catalog.json`、各游戏的 `README.zh-CN.md` 和 catalog 指定的封面；不写入原仓库，也不复制 DLL、适配包 ZIP、游戏本体或设备日志。游戏 ID 可以与资料目录不同：说明从 catalog 的 `settings` 所在目录读取，未指定 `settings` 时使用游戏 ID 目录；封面按 `cover` 的实际路径读取，再以游戏 ID 命名保存到网站。所有读取路径仍限制在 profiles 内。所有封面逐字节复制，不裁切、不重绘。缺少封面时输出 `null`，缺少说明时输出空字符串，由页面显示文字占位。
 
 `source.commit` 和 `source.workingTreeDirty` 记录同步来源。后者只检查原仓库 profiles 路径下的改动；从源码压缩包导入、无法取得 Git 信息时，两者为 `null`。`source.kind` 始终为 `local`：目录和说明是这次导入的本地资料，不代表已在服务器正式发布。`source.importedAt` 是 UTC 时间。
 

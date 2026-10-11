@@ -163,11 +163,15 @@ export async function syncCatalog({
           notes.verificationNote.trim()),
       `Verified/partial status requires editorial evidence for ${entry.id}`,
     );
-    const readme = await sourceFile(profileRoot, `${entry.id}/README.zh-CN.md`, { optional: true });
+    const profileDirectory =
+      typeof entry.settings === 'string' ? path.posix.dirname(entry.settings) : entry.id;
+    const readme = await sourceFile(profileRoot, `${profileDirectory}/README.zh-CN.md`, {
+      optional: true,
+    });
     let cover = null;
     if (entry.cover != null) {
       requireValue(
-        typeof entry.cover === 'string' && entry.cover.startsWith(`${entry.id}/`),
+        typeof entry.cover === 'string',
         `Invalid cover path for ${entry.id}`,
       );
       const extension = path.extname(entry.cover).toLowerCase();

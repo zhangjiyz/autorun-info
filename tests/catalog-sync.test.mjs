@@ -54,6 +54,35 @@ test('missing optional image and README stay explicit', async (t) => {
   assert.equal(snapshot.games[0].readme, '');
 });
 
+test('profile IDs can differ from asset directories without losing covers or README', async (t) => {
+  const setup = await fixture(t, [
+    entry,
+    { ...entry, id: 'sample-inmm', settings: 'sample/Sample.wine-nx.txt' },
+  ]);
+  const snapshot = await syncCatalog(setup);
+  assert.deepEqual(snapshot.games.map((game) => game.id), ['sample', 'sample-inmm']);
+  assert.equal(snapshot.games[1].readme, setup.readme);
+  assert.equal(snapshot.games[1].cover, '/covers/sample-inmm.png');
+  assert.deepEqual(
+    await readFile(path.join(setup.outputRoot, 'public/covers/sample-inmm.png')),
+    setup.coverBytes,
+  );
+});
+
+test('cover and README directory traversal still fail when the ID differs', async (t) => {
+  for (const overrides of [
+    { cover: '../outside.png' },
+    { cover: '/outside.png' },
+    { settings: '../outside/Sample.wine-nx.txt' },
+  ]) {
+    const setup = await fixture(t, [{ ...entry, id: 'sample-inmm', ...overrides }]);
+    await assert.rejects(syncCatalog(setup), /Unsafe source path/);
+    await assert.rejects(readFile(path.join(setup.outputRoot, 'src/data/games.json')), {
+      code: 'ENOENT',
+    });
+  }
+});
+
 test('rejects catalog traversal and symlink escapes before any output', async (t) => {
   const setup = await fixture(t, [{ ...entry, cover: 'sample/../../secret.png' }]);
   await assert.rejects(syncCatalog(setup), /Unsafe source path/);
